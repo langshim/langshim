@@ -1,0 +1,27 @@
+# 忽略目标文件夹（编译输出）
+target/
+
+# 忽略 Cargo 的锁文件（可选，如果你希望在镜像里重新生成 Cargo.lock）
+# Cargo.lock
+
+# 忽略临时文件、编辑器配置文件
+*.rs.bk
+*.swp
+*.swo
+*.tmp
+
+# 忽略系统文件
+.DS_Store
+Thumbs.db
+
+# 忽略版本控制文件
+.git
+.gitignore
+
+# 忽略 IDE 配置
+.idea
+.vscode
+*.iml
+
+# 忽略日志文件
+*.log

@@ -1,0 +1,184 @@
+{
+  "models": {
+    "deepseek-v3.2": {
+      "currency": "CNY",
+      "input_pricing_per_mtoken": 2,
+      "cache_write_pricing_per_mtoken": 2,
+      "cache_read_pricing_per_mtoken": 0.2,
+      "reasoning_pricing_per_mtoken": 3,
+      "output_pricing_per_mtoken": 3,
+      "transport": {
+        "provider": "deepseek",
+        "model_id": "deepseek-chat",
+        "protocol": "anthropic",
+        "base_url": "https://api.deepseek.com/anthropic",
+        "api_key": ""
+      }
+    },
+    "qwen3.5-plus": {
+      "currency": "CNY",
+      "input_pricing_per_mtoken": 2,
+      "cache_write_pricing_per_mtoken": 2.5,
+      "cache_read_pricing_per_mtoken": 0.2,
+      "reasoning_pricing_per_mtoken": 12,
+      "output_pricing_per_mtoken": 12,
+      "above": 256000,
+      "input_pricing_per_mtoken_above": 4,
+      "cache_write_pricing_per_mtoken_above": 5,
+      "cache_read_pricing_per_mtoken_above": 0.4,
+      "output_pricing_per_mtoken_above": 24,
+      "reasoning_pricing_per_mtoken_above": 24,
+      "transport": {
+        "provider": "aliyun",
+        "model_id": "qwen3.5-plus",
+        "protocol": "anthropic",
+        "base_url": "https://coding.dashscope.aliyuncs.com/apps/anthropic",
+        "api_key": ""
+      }
+    },
+    "kimi-k2.5": {
+      "currency": "CNY",
+      "input_pricing_per_mtoken": 4,
+      "cache_write_pricing_per_mtoken": 5,
+      "cache_read_pricing_per_mtoken": 0.7,
+      "reasoning_pricing_per_mtoken": 21,
+      "output_pricing_per_mtoken": 21,
+      "transport": {
+        "provider": "moonshot",
+        "model_id": "kimi-k2.5",
+        "protocol": "anthropic",
+        "base_url": "https://api.kimi.com/coding",
+        "api_key": ""
+      }
+    },
+    "gpt-5.4-mini": {
+      "currency": "USD",
+      "input_pricing_per_mtoken": 0.75,
+      "cache_write_pricing_per_mtoken": 0.9375,
+      "cache_read_pricing_per_mtoken": 0.075,
+      "reasoning_pricing_per_mtoken": 4.5,
+      "output_pricing_per_mtoken": 4.5,
+      "transport": {
+        "provider": "openai",
+        "model_id": "gpt-5.4-mini-2026-03-17",
+        "protocol": "openai",
+        "base_url": "https://api.openai.com/v1",
+        "api_key": ""
+      }
+    },
+    "gpt-5.4": {
+      "currency": "USD",
+      "input_pricing_per_mtoken": 2.5,
+      "cache_write_pricing_per_mtoken": 3.125,
+      "cache_read_pricing_per_mtoken": 0.25,
+      "reasoning_pricing_per_mtoken": 15,
+      "output_pricing_per_mtoken": 15,
+      "above": 272000,
+      "input_pricing_per_mtoken_above": 5,
+      "cache_write_pricing_per_mtoken_above": 6.25,
+      "cache_read_pricing_per_mtoken_above": 0.5,
+      "output_pricing_per_mtoken_above": 30,
+      "reasoning_pricing_per_mtoken_above": 30,
+      "transport": {
+        "provider": "openai",
+        "model_id": "gpt-5.4-2026-03-05",
+        "protocol": "openai-responses",
+        "base_url": "https://api.openai.com/v1",
+        "api_key": ""
+      }
+    },
+    "claude-haiku-4.5": {
+      "currency": "USD",
+      "input_pricing_per_mtoken": 1.0,
+      "cache_write_pricing_per_mtoken": 1.25,
+      "cache_read_pricing_per_mtoken": 0.1,
+      "reasoning_pricing_per_mtoken": 5.0,
+      "output_pricing_per_mtoken": 5.0,
+      "transport": {
+        "provider": "amazon",
+        "model_id": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+        "protocol": "bedrock",
+        "base_url": "https://bedrock-runtime.us-west-2.amazonaws.com",
+        "api_key": ""
+      }
+    },
+    "claude-sonnet-4.6": {
+      "currency": "USD",
+      "input_pricing_per_mtoken": 3.0,
+      "cache_write_pricing_per_mtoken": 3.75,
+      "cache_read_pricing_per_mtoken": 0.3,
+      "reasoning_pricing_per_mtoken": 15.0,
+      "output_pricing_per_mtoken": 15.0,
+      "above": 200000,
+      "input_pricing_per_mtoken_above": 6.0,
+      "cache_write_pricing_per_mtoken_above": 7.5,
+      "cache_read_pricing_per_mtoken_above": 0.6,
+      "output_pricing_per_mtoken_above": 22.5,
+      "reasoning_pricing_per_mtoken_above": 22.5,
+      "transport": {
+        "provider": "openrouter",
+        "model_id": "anthropic/claude-sonnet-4.6",
+        "protocol": "openai",
+        "base_url": "https://openrouter.ai/api/v1",
+        "api_key": ""
+      }
+    },
+    "gemini-3.1-pro": {
+      "currency": "USD",
+      "input_pricing_per_mtoken": 2.0,
+      "cache_write_pricing_per_mtoken": 2.0,
+      "cache_read_pricing_per_mtoken": 0.2,
+      "reasoning_pricing_per_mtoken": 12,
+      "output_pricing_per_mtoken": 12,
+      "above": 200000,
+      "input_pricing_per_mtoken_above": 4.0,
+      "cache_write_pricing_per_mtoken_above": 4.0,
+      "cache_read_pricing_per_mtoken_above": 0.4,
+      "output_pricing_per_mtoken_above": 18,
+      "reasoning_pricing_per_mtoken_above": 18,
+      "transport": {
+        "provider": "google",
+        "model_id": "gemini-3.1-pro-preview",
+        "protocol": "gemini",
+        "base_url": "https://generativelanguage.googleapis.com",
+        "api_key": ""
+      }
+    },
+    "glm-5.1": {
+      "currency": "CNY",
+      "input_pricing_per_mtoken": 4,
+      "cache_write_pricing_per_mtoken": 4,
+      "cache_read_pricing_per_mtoken": 1,
+      "reasoning_pricing_per_mtoken": 18,
+      "output_pricing_per_mtoken": 18,
+      "above": 32000,
+      "input_pricing_per_mtoken_above": 6,
+      "cache_write_pricing_per_mtoken_above": 6,
+      "cache_read_pricing_per_mtoken_above": 1.5,
+      "output_pricing_per_mtoken_above": 22,
+      "reasoning_pricing_per_mtoken_above": 22,
+      "transport": {
+        "provider": "zai",
+        "model_id": "glm-5.1",
+        "protocol": "openai",
+        "base_url": "https://api.z.ai/api/coding/paas/v4",
+        "api_key": ""
+      }
+    },
+    "minimax-m2.7": {
+      "currency": "CNY",
+      "input_pricing_per_mtoken": 2.1,
+      "cache_write_pricing_per_mtoken": 2.1,
+      "cache_read_pricing_per_mtoken": 0.42,
+      "reasoning_pricing_per_mtoken": 8.4,
+      "output_pricing_per_mtoken": 8.4,
+      "transport": {
+        "provider": "minimax",
+        "model_id": "MiniMax-M2.7",
+        "protocol": "anthropic",
+        "base_url": "https://api.minimaxi.com/anthropic",
+        "api_key": ""
+      }
+    }
+  }
+}

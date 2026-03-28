@@ -1,0 +1,9 @@
+/target
+.idea
+.env
+.zed
+models.json
+test
+.toco
+.vscode/toco*
+.idea/toco*
