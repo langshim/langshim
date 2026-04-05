@@ -199,9 +199,9 @@ langshim usage monthly --month 2026-03
 
 | Client endpoint | Request shape | `bedrock` backend | `gemini` backend | `anthropic` backend | `openai` backend | `openai-responses` backend |
 |----------|----------|------------------|------------------|------------------|---------------|-------------------------|
-| `/v1/messages` | Anthropic Messages | ✅ | ⚠️ | ✅ | ✅ | ✅ |
-| `/v1/chat/completions` | OpenAI Chat Completions | ✅ | ⚠️ | ✅ | ✅ | ✅ |
-| `/v1/responses` | OpenAI Responses | ✅ | ⚠️ | ✅ | ✅ | ✅ |
+| `/v1/messages` | Anthropic Messages | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `/v1/chat/completions` | OpenAI Chat Completions | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `/v1/responses` | OpenAI Responses | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `/v1beta/models/{model}:generateContent`<br>`/v1beta/models/{model}:streamGenerateContent` | Google Gemini | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 ### Important compatibility notes

@@ -120,6 +120,12 @@ wire_api = "responses"
 requires_openai_auth = true
 supports_websockets = false
 base_url = "http://localhost:3000/v1"
+
+$ cat auth.json
+{
+  "OPENAI_API_KEY": "secret",
+  "auth_mode": "apikey"
+}
 ```
 
 #### Gemini
@@ -241,9 +247,9 @@ Bedrock 示例：
 
 | 客户端端点 | 请求格式 | `bedrock` 后端 | `gemini` 后端 | `anthropic` 后端 | `openai` 后端 | `openai-responses` 后端 |
 |----------|----------|------------------|------------------|------------------|---------------|-------------------------|
-| `/v1/messages` | Anthropic Messages | ✅ | ⚠️ | ✅ | ✅ | ✅ |
-| `/v1/chat/completions` | OpenAI Chat Completions | ✅ | ⚠️ | ✅ | ✅ | ✅ |
-| `/v1/responses` | OpenAI Responses | ✅ | ⚠️ | ✅ | ✅ | ✅ |
+| `/v1/messages` | Anthropic Messages | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `/v1/chat/completions` | OpenAI Chat Completions | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `/v1/responses` | OpenAI Responses | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `/v1beta/models/{model}:generateContent`<br>`/v1beta/models/{model}:streamGenerateContent` | Google Gemini | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 ### 兼容性说明

@@ -10,12 +10,22 @@ use serde_json::Value;
 use std::collections::HashMap;
 use tracing::debug;
 
+const SKIP_THOUGHT_SIGNATURE_VALIDATOR: &str = "skip_thought_signature_validator";
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ActiveGeminiBlockKind {
+    Text,
+    Thinking,
+}
+
 #[derive(Debug, Default)]
 pub(crate) struct GeminiStreamState {
     pub message_started: bool,
     pub next_index: u32,
     pub emitted_message_stop: bool,
     pub pending_thought_signature: Option<String>,
+    active_block_index: Option<u32>,
+    active_block_kind: Option<ActiveGeminiBlockKind>,
 }
 
 pub(crate) fn convert_gemini_to_anthropic(
@@ -217,6 +227,9 @@ pub(crate) fn convert_gemini_stream_chunk_to_anthropic(
             }
 
             if candidate.finish_reason.is_some() || chunk.usage_metadata.is_some() {
+                if candidate.finish_reason.is_some() {
+                    close_active_stream_block(state, &mut events);
+                }
                 let usage = chunk.usage_metadata.as_ref().map_or(
                     MessageDeltaUsage {
                         output_tokens: 0,
@@ -251,6 +264,7 @@ pub(crate) fn convert_gemini_stream_chunk_to_anthropic(
             }
         }
     } else if chunk.usage_metadata.is_some() && !state.emitted_message_stop {
+        close_active_stream_block(state, &mut events);
         let usage = chunk
             .usage_metadata
             .as_ref()
@@ -507,28 +521,17 @@ fn push_gemini_part_stream_events(
     state: &mut GeminiStreamState,
     events: &mut Vec<StreamEvent>,
 ) {
-    let index = state.next_index;
-
     if let Some(text) = &part.text {
         if !text.is_empty() {
-            let start_block = if part.thought.unwrap_or(false) {
-                ContentBlock::Thinking {
-                    thinking: String::new(),
-                    signature: None,
-                }
+            let block_kind = if part.thought.unwrap_or(false) {
+                ActiveGeminiBlockKind::Thinking
             } else {
-                ContentBlock::Text {
-                    text: String::new(),
-                    cache_control: None,
-                }
+                ActiveGeminiBlockKind::Text
             };
-            events.push(StreamEvent::ContentBlockStart {
-                index,
-                content_block: start_block,
-            });
+            let index = ensure_active_stream_block(state, block_kind, events);
             events.push(StreamEvent::ContentBlockDelta {
                 index,
-                delta: if part.thought.unwrap_or(false) {
+                delta: if block_kind == ActiveGeminiBlockKind::Thinking {
                     crate::types::ContentBlockDelta::ThinkingDelta {
                         thinking: text.clone(),
                     }
@@ -536,7 +539,7 @@ fn push_gemini_part_stream_events(
                     crate::types::ContentBlockDelta::TextDelta { text: text.clone() }
                 },
             });
-            if part.thought.unwrap_or(false) {
+            if block_kind == ActiveGeminiBlockKind::Thinking {
                 if let Some(signature) = &part.thought_signature {
                     state.pending_thought_signature = Some(signature.clone());
                     events.push(StreamEvent::ContentBlockDelta {
@@ -547,12 +550,11 @@ fn push_gemini_part_stream_events(
                     });
                 }
             }
-            events.push(StreamEvent::ContentBlockStop { index });
-            state.next_index += 1;
         }
     }
 
     if let Some(function_call) = &part.function_call {
+        close_active_stream_block(state, events);
         let thought_signature = part
             .thought_signature
             .clone()
@@ -581,6 +583,49 @@ fn push_gemini_part_stream_events(
         });
         state.next_index += 1;
     }
+}
+
+fn ensure_active_stream_block(
+    state: &mut GeminiStreamState,
+    block_kind: ActiveGeminiBlockKind,
+    events: &mut Vec<StreamEvent>,
+) -> u32 {
+    if state.active_block_kind != Some(block_kind) {
+        close_active_stream_block(state, events);
+    }
+
+    if let Some(index) = state.active_block_index {
+        return index;
+    }
+
+    let index = state.next_index;
+    state.next_index += 1;
+    state.active_block_index = Some(index);
+    state.active_block_kind = Some(block_kind);
+
+    let start_block = match block_kind {
+        ActiveGeminiBlockKind::Text => ContentBlock::Text {
+            text: String::new(),
+            cache_control: None,
+        },
+        ActiveGeminiBlockKind::Thinking => ContentBlock::Thinking {
+            thinking: String::new(),
+            signature: None,
+        },
+    };
+    events.push(StreamEvent::ContentBlockStart {
+        index,
+        content_block: start_block,
+    });
+
+    index
+}
+
+fn close_active_stream_block(state: &mut GeminiStreamState, events: &mut Vec<StreamEvent>) {
+    if let Some(index) = state.active_block_index.take() {
+        events.push(StreamEvent::ContentBlockStop { index });
+    }
+    state.active_block_kind = None;
 }
 
 fn convert_gemini_part_to_content_block(
@@ -717,7 +762,11 @@ fn convert_content_block_to_gemini_part(
             Some(GeminiPart {
                 text: None,
                 thought: None,
-                thought_signature,
+                thought_signature: Some(
+                    thought_signature.unwrap_or_else(|| {
+                        SKIP_THOUGHT_SIGNATURE_VALIDATOR.to_string()
+                    }),
+                ),
                 inline_data: None,
                 file_data: None,
                 function_call: Some(GeminiFunctionCall {
@@ -870,7 +919,7 @@ fn function_call_chunk(
                 parts: vec![GeminiPart {
                     text: None,
                     thought: None,
-                    thought_signature: None,
+                    thought_signature: Some(SKIP_THOUGHT_SIGNATURE_VALIDATOR.to_string()),
                     inline_data: None,
                     file_data: None,
                     function_call: Some(GeminiFunctionCall { name, args, id }),
@@ -1137,6 +1186,60 @@ mod tests {
         assert_eq!(
             function_response.map(|response| response.response.clone()),
             Some(serde_json::json!({"ok":true}))
+        );
+        let function_call = gemini
+            .contents
+            .get(1)
+            .and_then(|content| content.parts.first())
+            .and_then(|part| part.function_call.as_ref());
+        assert_eq!(
+            gemini
+                .contents
+                .get(1)
+                .and_then(|content| content.parts.first())
+                .and_then(|part| part.thought_signature.as_deref()),
+            Some("skip_thought_signature_validator")
+        );
+        assert_eq!(function_call.map(|call| call.name.as_str()), Some("lookup"));
+    }
+
+    #[test]
+    fn preserves_existing_tool_use_thought_signature_in_gemini_request() {
+        let request = AnthropicRequest {
+            model: "gemini-2.5-flash".to_string(),
+            messages: vec![Message {
+                role: "assistant".to_string(),
+                content: MessageContent::Blocks(vec![ContentBlock::ToolUse {
+                    id: "tool-1".to_string(),
+                    name: "lookup".to_string(),
+                    input: serde_json::json!({"ticker":"AAPL"}),
+                    thought_signature: Some("sig-123".to_string()),
+                    cache_control: None,
+                }]),
+            }],
+            max_tokens: 222,
+            metadata: None,
+            stop_sequences: None,
+            stream: Some(true),
+            system: None,
+            temperature: None,
+            thinking: None,
+            tool_choice: None,
+            tools: None,
+            top_k: None,
+            top_p: None,
+            cache_control: None,
+        };
+
+        let gemini = convert_anthropic_to_gemini_request(request);
+
+        assert_eq!(
+            gemini
+                .contents
+                .first()
+                .and_then(|content| content.parts.first())
+                .and_then(|part| part.thought_signature.as_deref()),
+            Some("sig-123")
         );
     }
 
@@ -1830,6 +1933,141 @@ mod tests {
                 .iter()
                 .any(|event| matches!(event, StreamEvent::MessageStop))
         );
+    }
+
+    #[test]
+    fn merges_consecutive_text_parts_into_single_stream_block() {
+        let mut state = GeminiStreamState::default();
+        let chunk = GeminiGenerateContentResponse {
+            candidates: Some(vec![GeminiCandidate {
+                content: Some(GeminiContent {
+                    role: Some("model".to_string()),
+                    parts: vec![
+                        GeminiPart {
+                            text: Some("hello".to_string()),
+                            thought: None,
+                            thought_signature: None,
+                            inline_data: None,
+                            file_data: None,
+                            function_call: None,
+                            function_response: None,
+                            cache_control: None,
+                        },
+                        GeminiPart {
+                            text: Some(" world".to_string()),
+                            thought: None,
+                            thought_signature: None,
+                            inline_data: None,
+                            file_data: None,
+                            function_call: None,
+                            function_response: None,
+                            cache_control: None,
+                        },
+                    ],
+                }),
+                finish_reason: Some("STOP".to_string()),
+                finish_message: None,
+                index: Some(0),
+            }]),
+            usage_metadata: None,
+            model_version: Some("gemini-3.1-pro-preview".to_string()),
+            response_id: Some("resp-1".to_string()),
+        };
+
+        let events = convert_gemini_stream_chunk_to_anthropic("fallback", chunk, &mut state);
+
+        let start_count = events
+            .iter()
+            .filter(|event| matches!(event, StreamEvent::ContentBlockStart { .. }))
+            .count();
+        let stop_count = events
+            .iter()
+            .filter(|event| matches!(event, StreamEvent::ContentBlockStop { .. }))
+            .count();
+        let text_deltas: Vec<(u32, String)> = events
+            .iter()
+            .filter_map(|event| match event {
+                StreamEvent::ContentBlockDelta {
+                    index,
+                    delta: ContentBlockDelta::TextDelta { text },
+                } => Some((*index, text.clone())),
+                _ => None,
+            })
+            .collect();
+
+        assert_eq!(start_count, 1);
+        assert_eq!(stop_count, 1);
+        assert_eq!(text_deltas.len(), 2);
+        assert_eq!(text_deltas[0].0, text_deltas[1].0);
+        assert_eq!(text_deltas[0].1, "hello");
+        assert_eq!(text_deltas[1].1, " world");
+    }
+
+    #[test]
+    fn closes_text_block_before_starting_tool_use_block() {
+        let mut state = GeminiStreamState::default();
+        let chunk = GeminiGenerateContentResponse {
+            candidates: Some(vec![GeminiCandidate {
+                content: Some(GeminiContent {
+                    role: Some("model".to_string()),
+                    parts: vec![
+                        GeminiPart {
+                            text: Some("running tool".to_string()),
+                            thought: None,
+                            thought_signature: None,
+                            inline_data: None,
+                            file_data: None,
+                            function_call: None,
+                            function_response: None,
+                            cache_control: None,
+                        },
+                        GeminiPart {
+                            text: None,
+                            thought: None,
+                            thought_signature: Some("sig-123".to_string()),
+                            inline_data: None,
+                            file_data: None,
+                            function_call: Some(GeminiFunctionCall {
+                                name: "exec_command".to_string(),
+                                args: serde_json::json!({"cmd":"ls -la"}),
+                                id: Some("call-1".to_string()),
+                            }),
+                            function_response: None,
+                            cache_control: None,
+                        },
+                    ],
+                }),
+                finish_reason: Some("STOP".to_string()),
+                finish_message: None,
+                index: Some(0),
+            }]),
+            usage_metadata: None,
+            model_version: Some("gemini-3.1-pro-preview".to_string()),
+            response_id: Some("resp-1".to_string()),
+        };
+
+        let events = convert_gemini_stream_chunk_to_anthropic("fallback", chunk, &mut state);
+        let text_start = events
+            .iter()
+            .position(|event| matches!(event, StreamEvent::ContentBlockStart { index: 0, .. }))
+            .expect("expected text block start");
+        let text_stop = events
+            .iter()
+            .position(|event| matches!(event, StreamEvent::ContentBlockStop { index: 0 }))
+            .expect("expected text block stop");
+        let tool_start = events
+            .iter()
+            .position(|event| matches!(
+                event,
+                StreamEvent::ContentBlockStart {
+                    index: 1,
+                    content_block: ContentBlock::ToolUse { .. },
+                }
+            ))
+            .expect("expected tool block start");
+
+        assert!(text_start < text_stop);
+        assert!(text_stop < tool_start);
     }
 
     #[test]

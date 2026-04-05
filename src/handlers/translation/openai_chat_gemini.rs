@@ -14,6 +14,8 @@ use async_openai::types::chat::{
 use serde_json::json;
 use std::collections::{HashMap, VecDeque};
 
+const SKIP_THOUGHT_SIGNATURE_VALIDATOR: &str = "skip_thought_signature_validator";
+
 // ─── Private helpers ─────────────────────────────────────────────────────────
 
 fn make_text_part(text: String) -> GeminiPart {
@@ -166,6 +168,9 @@ pub(crate) fn convert_openai_chat_to_gemini_request(
                                 serde_json::from_str(&f.function.arguments)
                                     .unwrap_or_else(|_| json!({}));
                             parts.push(GeminiPart {
+                                thought_signature: Some(
+                                    SKIP_THOUGHT_SIGNATURE_VALIDATOR.to_string(),
+                                ),
                                 function_call: Some(GeminiFunctionCall {
                                     name: f.function.name.clone(),
                                     args,
@@ -622,6 +627,7 @@ pub(crate) fn convert_openai_chat_to_gemini_response(
                     serde_json::from_str(args_str).unwrap_or_else(|_| json!({}));
 
                 parts.push(GeminiPart {
+                    thought_signature: Some(SKIP_THOUGHT_SIGNATURE_VALIDATOR.to_string()),
                     function_call: Some(GeminiFunctionCall { name, args, id }),
                     ..empty_gemini_part()
                 });
@@ -818,5 +824,39 @@ mod tests {
 
         assert_eq!(messages[1]["tool_call_id"], "call_a");
         assert_eq!(messages[2]["tool_call_id"], "call_b");
+    }
+
+    #[test]
+    fn openai_assistant_tool_calls_get_skip_thought_signature_for_gemini() {
+        let request: CreateChatCompletionRequest = serde_json::from_value(json!({
+            "model": "gpt-5.4-nano",
+            "messages": [
+                {
+                    "role": "assistant",
+                    "tool_calls": [
+                        {
+                            "id": "call_123",
+                            "type": "function",
+                            "function": {
+                                "name": "list_directory",
+                                "arguments": "{\"dir_path\":\"/tmp/demo\"}"
+                            }
+                        }
+                    ]
+                }
+            ]
+        }))
+        .expect("request should deserialize");
+
+        let gemini = convert_openai_chat_to_gemini_request(&request);
+
+        assert_eq!(
+            gemini
+                .contents
+                .first()
+                .and_then(|content| content.parts.first())
+                .and_then(|part| part.thought_signature.as_deref()),
+            Some("skip_thought_signature_validator")
+        );
     }
 }

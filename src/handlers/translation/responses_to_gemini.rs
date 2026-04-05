@@ -6,6 +6,8 @@ use crate::types::{
     ResponseReasoningSummary, ResponseUsage, ResponsesRequest, ResponsesResponse,
 };
 
+const SKIP_THOUGHT_SIGNATURE_VALIDATOR: &str = "skip_thought_signature_validator";
+
 pub(crate) fn convert_responses_to_gemini_request(
     request: &ResponsesRequest,
 ) -> GeminiGenerateContentRequest {
@@ -136,7 +138,9 @@ fn convert_input_to_gemini_contents(input: &Option<serde_json::Value>) -> Vec<Ge
                 let part = GeminiPart {
                     text: None,
                     thought: None,
-                    thought_signature,
+                    thought_signature: Some(thought_signature.unwrap_or_else(|| {
+                        SKIP_THOUGHT_SIGNATURE_VALIDATOR.to_string()
+                    })),
                     inline_data: None,
                     file_data: None,
                     function_call: Some(GeminiFunctionCall {
@@ -418,5 +422,38 @@ pub(crate) fn convert_gemini_response_to_responses(
         created_at: chrono::Utc::now().timestamp(),
         output: Some(output),
         usage,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::convert_responses_to_gemini_request;
+    use crate::types::ResponsesRequest;
+
+    #[test]
+    fn responses_function_calls_get_skip_thought_signature_for_gemini() {
+        let request: ResponsesRequest = serde_json::from_value(serde_json::json!({
+            "model": "gpt-5.4",
+            "input": [
+                {
+                    "type": "function_call",
+                    "call_id": "call_123",
+                    "name": "list_directory",
+                    "arguments": "{\"dir_path\":\"/tmp/demo\"}"
+                }
+            ]
+        }))
+        .expect("request should deserialize");
+
+        let gemini = convert_responses_to_gemini_request(&request);
+
+        assert_eq!(
+            gemini
+                .contents
+                .first()
+                .and_then(|content| content.parts.first())
+                .and_then(|part| part.thought_signature.as_deref()),
+            Some("skip_thought_signature_validator")
+        );
     }
 }
